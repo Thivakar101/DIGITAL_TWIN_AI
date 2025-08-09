@@ -1,0 +1,11 @@
+# Core UI
+PyQt5>=5.15
+
+# Vector math
+numpy>=1.26
+
+# Optional: dotenv for local env handling
+python-dotenv>=1.0
+
+# Gemini API client (optional at runtime)
+google-generativeai>=0.6.0
