@@ -1,103 +1,131 @@
-"""
-Lightweight Gemini client wrapper. Uses GEMINI_API_KEY if available.
-Falls back to offline stubs so the app runs locally for testing.
-"""
+"""Gemini REST client with explicit error handling and offline fallback."""
 from __future__ import annotations
+
+import json
 import os
 import random
-from typing import List, Optional
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Dict, List, Optional
 
-# Optional: load .env if available
-try:
-    from dotenv import load_dotenv  # type: ignore
-    load_dotenv()
-except Exception:
-    pass
+from app_config import get_env_value, load_environment
+
+
+class GeminiAPIError(RuntimeError):
+    """Raised when a live Gemini request fails."""
 
 
 class GeminiClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model_name: str = "gemini-1.5-flash",
-        embed_model: str = "text-embedding-004",
+        model_name: str = "gemini-3.5-flash",
+        embed_model: str = "gemini-embedding-001",
+        timeout_seconds: int = 30,
     ):
-        self.api_key = (api_key or os.environ.get("GEMINI_API_KEY", "")).strip()
+        load_environment()
+        self.api_key = (api_key or get_env_value("GEMINI_API_KEY", "")).strip()
         self.model_name = model_name
         self.embed_model = embed_model
-        self._configured = False
-        self._have_sdk = False
-        self._configure_sdk()
+        self.timeout_seconds = timeout_seconds
+        self.last_error = ""
 
-    def _configure_sdk(self) -> None:
-        self._have_sdk = False
-        if not self.api_key:
-            return
-        try:
-            import google.generativeai as genai  # type: ignore
-            genai.configure(api_key=self.api_key)
-            self._have_sdk = True
-            self._configured = True
-            self._genai = genai
-        except Exception:
-            # Keep fallback mode
-            self._have_sdk = False
-            self._configured = False
+    @property
+    def has_api_key(self) -> bool:
+        return bool(self.api_key)
+
+    def status(self) -> Dict[str, object]:
+        return {
+            "configured": self.has_api_key,
+            "mode": "live" if self.has_api_key else "offline",
+            "last_error": self.last_error,
+            "model_name": self.model_name,
+            "embed_model": self.embed_model,
+        }
 
     def set_api_key(self, api_key: str) -> None:
         self.api_key = (api_key or "").strip()
-        os.environ["GEMINI_API_KEY"] = self.api_key  # ensure downstream code sees it this process
-        self._configure_sdk()
+        os.environ["GEMINI_API_KEY"] = self.api_key
+        self.last_error = ""
 
-    # Embeddings API
+    def _endpoint(self, model_name: str, action: str) -> str:
+        query = urllib.parse.urlencode({"key": self.api_key})
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:{action}?{query}"
+
+    def _post_json(self, url: str, payload: Dict[str, object]) -> Dict[str, object]:
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                raw = response.read().decode("utf-8")
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            message = body
+            try:
+                parsed = json.loads(body)
+                message = parsed.get("error", {}).get("message", body)
+            except Exception:
+                pass
+            self.last_error = f"Gemini API error ({exc.code}): {message}"
+            raise GeminiAPIError(self.last_error) from exc
+        except Exception as exc:
+            self.last_error = f"Gemini request failed: {exc}"
+            raise GeminiAPIError(self.last_error) from exc
+
     def embed(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
-        if self._have_sdk and self._configured:
-            try:
-                # google-generativeai doesn't batch embed_content; loop for stability
-                vecs: List[List[float]] = []
-                for t in texts:
-                    res = self._genai.embed_content(model=self.embed_model, content=t)
-                    # res: { 'embedding': [ ... ] }
-                    vecs.append(list(res.get("embedding", []) or []))
-                # Basic guard: fallback if empty
-                if all(len(v) == 0 for v in vecs):
-                    raise RuntimeError("Empty embeddings from API")
-                return vecs
-            except Exception:
-                pass  # fall through to stub
-        # Offline deterministic pseudo-embeddings
-        vecs = []
-        for t in texts:
-            r = random.Random(hash(t) & 0xFFFFFFFF)
-            vecs.append([r.random() for _ in range(256)])
-        return vecs
-
-    # Chat API
-    def chat(self, system_prompt: str, user_message: str) -> str:
-        if self._have_sdk and self._configured:
-            try:
-                model = self._genai.GenerativeModel(
-                    self.model_name, system_instruction=system_prompt
+        if self.has_api_key:
+            vectors: List[List[float]] = []
+            for text in texts:
+                response = self._post_json(
+                    self._endpoint(self.embed_model, "embedContent"),
+                    {
+                        "model": f"models/{self.embed_model}",
+                        "content": {"parts": [{"text": text}]},
+                    },
                 )
-                resp = model.generate_content(user_message)
-                txt = getattr(resp, "text", None)
-                if isinstance(txt, str) and txt.strip():
-                    return txt.strip()
-                # Fallback to concatenating parts
-                if hasattr(resp, "candidates") and resp.candidates:
-                    for c in resp.candidates:
-                        parts = getattr(getattr(c, "content", None), "parts", None)
-                        if parts:
-                            joined = " ".join(
-                                str(getattr(p, "text", "")) for p in parts
-                            )
-                            if joined.strip():
-                                return joined.strip()
-            except Exception:
-                pass
+                values = response.get("embedding", {}).get("values", [])
+                if not values:
+                    self.last_error = "Gemini embedding response was empty."
+                    raise GeminiAPIError(self.last_error)
+                vectors.append([float(value) for value in values])
+            self.last_error = ""
+            return vectors
+
+        vectors = []
+        for text in texts:
+            seeded = random.Random(hash(text) & 0xFFFFFFFF)
+            vectors.append([seeded.random() for _ in range(256)])
+        return vectors
+
+    def chat(self, system_prompt: str, user_message: str) -> str:
+        if self.has_api_key:
+            response = self._post_json(
+                self._endpoint(self.model_name, "generateContent"),
+                {
+                    "system_instruction": {"parts": [{"text": system_prompt}]},
+                    "contents": [{"parts": [{"text": user_message}]}],
+                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400},
+                },
+            )
+            candidates = response.get("candidates", [])
+            for candidate in candidates:
+                parts = candidate.get("content", {}).get("parts", [])
+                text = " ".join(part.get("text", "") for part in parts).strip()
+                if text:
+                    self.last_error = ""
+                    return text
+            self.last_error = "Gemini generated an empty response."
+            raise GeminiAPIError(self.last_error)
+
         return (
-            "[Stubbed Gemini Reply] Based on your persona and memories, "
-            f"here's a likely response: {user_message[:160]} ..."
+            "[Offline Mode] No Gemini API key is configured, so this is a local placeholder reply: "
+            f"{user_message[:160]} ..."
         )

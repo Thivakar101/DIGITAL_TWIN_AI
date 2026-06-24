@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CHLOE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+
+</head>
+<body>
+  <div class="backdrop-grid" aria-hidden="true"></div>
+  <main class="shell">
+    <section class="hero panel panel-hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Meet Chloe</p>
+        <h1>CHLOE</h1>
+        <p class="lead">Helpful when you need it. Quiet when you do not. Chloe keeps your conversations clear, grounded, and close to home.</p>
+        <div class="hero-meta">
+          <div>
+            <span class="meta-label">Mode</span>
+            <strong id="statusMode">Checking...</strong>
+          </div>
+          <div>
+            <span class="meta-label">Model</span>
+            <strong id="statusModel">Pending...</strong>
+          </div>
+          <div>
+            <span class="meta-label">Status</span>
+            <strong id="statusSignal">Stand by</strong>
+          </div>
+        </div>
+        <p id="statusError" class="status-error"></p>
+      </div>
+      <div class="hero-visuals">
+        <div class="visual-card visual-3d">
+          <div class="visual-label">Chloe Presence</div>
+          <canvas id="orbCanvas" aria-label="Chloe signal core"></canvas>
+        </div>
+        <div class="visual-card visual-video">
+          <div class="visual-label">Ambient Signal</div>
+          <iframe
+            src="https://giphy.com/embed/IXnygGeB6LPPi"
+            title="Monochrome tech signal loop"
+            loading="lazy"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="front-grid">
+      <section class="panel panel-chat">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Front Channel</p>
+            <h2>Active Channel</h2>
+          </div>
+          <div class="live-pill">Chloe Online</div>
+        </div>
+        <div id="chatLog" class="chat-log"></div>
+        <form id="chatForm" class="chat-compose">
+          <input id="chatMessage" name="message" type="text" placeholder="Say something to Chloe">
+          <button type="submit">Transmit</button>
+        </form>
+      </section>
+
+      <section class="panel panel-simulate">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="section-kicker">Front Channel</p>
+            <h2>Forecast</h2>
+          </div>
+        </div>
+        <form id="simulateForm" class="stack-form">
+          <textarea id="situation" name="situation" rows="8" placeholder="Describe something Chloe should think through"></textarea>
+          <button type="submit">Run Scenario</button>
+        </form>
+        <div id="simulateOutput" class="answer-box">Awaiting scenario input.</div>
+      </section>
+    </section>
+
+    <section class="system-grid">
+      <section class="panel panel-compact">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="section-kicker">System Deck</p>
+            <h2>Connection</h2>
+          </div>
+        </div>
+        <form id="settingsForm" class="stack-form">
+          <label>
+            <span>User Name</span>
+            <input id="userName" name="user_name" type="text" placeholder="Your name">
+          </label>
+          <label>
+            <span>Local Model</span>
+            <input id="modelName" name="model_name" type="text" placeholder="llama3:latest">
+          </label>
+          <label>
+            <span>Ollama URL</span>
+            <input id="baseUrl" name="base_url" type="text" placeholder="http://127.0.0.1:11434">
+          </label>
+          <button type="submit">Save Link</button>
+        </form>
+      </section>
+
+      <section class="panel panel-compact">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="section-kicker">System Deck</p>
+            <h2>Persona</h2>
+          </div>
+        </div>
+        <form id="surveyForm" class="survey-grid">
+          <label><span>Directness</span><input name="tone_directness" type="number" min="1" max="5" value="3"></label>
+          <label><span>Formality</span><input name="tone_formality" type="number" min="1" max="5" value="3"></label>
+          <label><span>Empathy</span><input name="tone_empathy" type="number" min="1" max="5" value="3"></label>
+          <label><span>Length</span><input name="msg_length" type="number" min="1" max="5" value="3"></label>
+          <label><span>Humor Style</span><input name="humor_style" type="text" value="light"></label>
+          <label><span>Humor Frequency</span><input name="humor_frequency" type="number" min="1" max="5" value="3"></label>
+          <label><span>Honesty</span><input name="val_honesty" type="number" min="1" max="5" value="3"></label>
+          <label><span>Efficiency</span><input name="val_efficiency" type="number" min="1" max="5" value="3"></label>
+          <label><span>Loyalty</span><input name="val_loyalty" type="number" min="1" max="5" value="3"></label>
+          <label><span>Creativity</span><input name="val_creativity" type="number" min="1" max="5" value="3"></label>
+          <label><span>Frugality</span><input name="val_frugality" type="number" min="1" max="5" value="3"></label>
+          <label><span>Agreeableness</span><input name="agreeableness" type="number" min="1" max="5" value="3"></label>
+          <label><span>Conscientiousness</span><input name="conscientiousness" type="number" min="1" max="5" value="3"></label>
+          <label><span>Openness</span><input name="openness" type="number" min="1" max="5" value="3"></label>
+          <label><span>Extraversion</span><input name="extraversion" type="number" min="1" max="5" value="3"></label>
+          <label><span>Data vs Intuition</span><input name="decision_data_vs_intuition" type="number" min="1" max="5" value="3"></label>
+          <label><span>Risk Tolerance</span><input name="risk_tolerance" type="number" min="1" max="5" value="3"></label>
+          <label><span>Speed vs Thoroughness</span><input name="speed_vs_thoroughness" type="number" min="1" max="5" value="3"></label>
+          <label><span>MBTI E/I</span><input name="mbti_ei" type="number" min="1" max="5" value="3"></label>
+          <label><span>MBTI S/N</span><input name="mbti_sn" type="number" min="1" max="5" value="3"></label>
+          <label><span>MBTI T/F</span><input name="mbti_tf" type="number" min="1" max="5" value="3"></label>
+          <label><span>MBTI J/P</span><input name="mbti_jp" type="number" min="1" max="5" value="3"></label>
+          <label class="span-2"><span>Catchphrase</span><input name="catchphrase" type="text" placeholder="Optional phrase Chloe can echo lightly"></label>
+          <label class="span-2"><span>Decision Example 1</span><input name="example_decision1" type="text"></label>
+          <label class="span-2"><span>Decision Example 2</span><input name="example_decision2" type="text"></label>
+          <label class="span-2"><span>Decision Example 3</span><input name="example_decision3" type="text"></label>
+          <button class="span-2" type="submit">Sync Persona</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="panel panel-memory">
+      <div class="panel-head compact-head">
+        <div>
+          <p class="section-kicker">Archive</p>
+          <h2>Memory Bank</h2>
+        </div>
+        <button id="refreshMemories" type="button">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Text</th>
+              <th>Timestamp</th>
+              <th>Meta</th>
+            </tr>
+          </thead>
+          <tbody id="memoryTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
